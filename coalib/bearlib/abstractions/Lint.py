@@ -50,9 +50,16 @@ class LinterHandler:
 # TODO --> But maybe not, this allows for @enforce_signature
 # TODO ------> Or "hybrid" approach, needed arguments are optional, if one activates
 # TODO ------> further options these get passed by kwargs
-def Linter(executable, **kwargs):
+def Linter(executable, provides_correction=False, **kwargs):
     # TODO Precompile output_regex
-    kwargs["executable"] = executable # TODO Sucks...
+    kwargs["executable"] = executable
+    kwargs["provides_correction"] = provides_correction
+
+    if kwargs["provides_correction"]:
+        pass # TODO assert for settings
+    else:
+        pass # TODO assert for settings
+
     def create_linter(cls):
         class Linter(LocalBear):
 
@@ -61,10 +68,11 @@ def Linter(executable, **kwargs):
 
             @property
             def handler(self):
-                return cls # TODO Directly import functions? Rethink design maybe then...
+                return cls
+
             @property
             def executable(self):
-                return kwargs["executable"] # TODO This needs to be solved more elegant...
+                return kwargs["executable"]
 
             def _execute_command(self, args, stdin=None):
                 # TODO Also more elegance...
@@ -354,6 +362,7 @@ class Lint(Bear):
                 config_lines[i] = line if line.endswith("\n") else line + "\n"
             config_fd, config_file = tempfile.mkstemp()
             os.close(config_fd)
+            # TODO Deletion of config files?
             with open(config_file, 'w') as conf_file:
                 conf_file.writelines(config_lines)
         return config_file
