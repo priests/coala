@@ -115,11 +115,18 @@ def Linter(executable: str,
     kwargs["use_stderr"] = use_stderr
     kwargs["provides_correction"] = provides_correction
 
+    allowed_kwargs = {"executable",
+                      "use_stdin",
+                      "use_stderr",
+                      "provides_correction"}
+
     if kwargs["provides_correction"]:
         if "diff_severity" not in kwargs:
             kwargs["diff_severity"] = RESULT_SEVERITY.NORMAL
         if "diff_message" not in kwargs:
             kwargs["diff_message"] = "Inconsistency found."
+
+        allowed_kwargs |= {"diff_severity", "diff_message"}
     else:
         if "output_regex" not in kwargs:
             raise ValueError("No `output_regex` specified.`")
@@ -134,6 +141,14 @@ def Linter(executable: str,
             kwargs["severity_map"] = {"error": RESULT_SEVERITY.MAJOR,
                                       "warning": RESULT_SEVERITY.NORMAL,
                                       "info": RESULT_SEVERITY.INFO}
+
+        allowed_kwargs |= {"output_regex", "severity_map"}
+
+    # Check for illegal superfluous kwargs.
+    superfluous_kwargs = kwargs.keys() - allowed_kwargs
+    if superfluous_kwargs:
+        raise ValueError("Superfluous keyword argument " +
+                         repr(superfluous_kwargs.pop()) + " provided.")
 
     def create_linter(cls):
         if not isinstance(cls, LinterHandler):
