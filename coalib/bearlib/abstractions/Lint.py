@@ -53,7 +53,7 @@ def Linter(executable: str,
     Using this decorator requires your class derives from ``LinterHandler``.
 
     >>> @Linter("xlint")
-    ... class XLintBear(LinterHandler):
+    ... class XLintBear:
     ...     def create_arguments(self, filename, file, config_file):
     ...         return ("--lint", filename)
     >>> try:
@@ -155,13 +155,14 @@ def Linter(executable: str,
             raise ValueError("Provided class must be derived from "
                              "`LinterHandler`.")
 
+        # Mixing the user-defined interface and the default LinterHandler.
+        class UserLinterHandler(cls, LinterHandler):
+            pass
+
         class Linter(LocalBear):
             @property
             def handler(self):
-                return cls
-
-            #def __repr__(self):
-            #    return repr(self.handler)
+                return UserLinterHandler
 
             check_prerequisites = handler.check_prerequisites
 
