@@ -23,6 +23,13 @@ class LinterHandler:
     def generate_config(self, filename, file):
         return None
 
+    @classmethod
+    def check_prerequisites(cls):
+        if shutil.which(cls.executable) is None:
+            return repr(cls.executable) + " is not installed."
+        else:
+            return True
+
 
 #TODO Replace `x` with ``x`` because of rst
 
@@ -34,7 +41,30 @@ def Linter(executable: str,
            use_stdin: bool=False,
            use_stderr: bool=False,
            **kwargs):
+    # TODO Document on ValueError for non-LinterHandler-derivative
     """
+    Decorator that creates a ``LocalBear`` that is able to process results from
+    an external linter tool.
+
+    The interface to the tool is the ``LinterHandler`` class that defines
+    functions you can hook up to. See ``LinterHandler`` for more details on
+    usage.
+
+    Using this decorator requires your class derives from ``LinterHandler``.
+
+    >>> @Linter("xlint")
+    ... class XLintBear(LinterHandler):
+    ...     def create_arguments(self, filename, file, config_file):
+    ...         return ("--lint", filename)
+    >>> try:
+    ...     @Linter("zlint")
+    ...     class ZLintBear:
+    ...         def create_arguments(self, filename, file, config_file):
+    ...             return [filename]
+    ... catch ValueError:
+    ...     print("ZLintBear is no LinterHandler!")
+    ZLintBear is no LinterHandler!
+
     :param executable:          The linter tool.
     :param provides_correction: Whether the underlying executable provides as
                                 output the entirely corrected file instead of
@@ -106,29 +136,22 @@ def Linter(executable: str,
                                       "info": RESULT_SEVERITY.INFO}
 
     def create_linter(cls):
+        if not isinstance(cls, LinterHandler):
+            raise ValueError("Provided class must be derived from "
+                             "`LinterHandler`.")
+
         class Linter(LocalBear):
-
-            # TODO same like the one used for the LinterHandler
-            # TODO Override __repr__ since the name of the class shall be the
-
             @property
             def handler(self):
                 return cls
 
-            @property
-            def executable(self):
-                return kwargs["executable"]
+            #def __repr__(self):
+            #    return repr(self.handler)
 
-            @classmethod
-            def check_prerequisites(cls):
-                if shutil.which(cls.executable) is None:
-                    return repr(cls.executable) + " is not installed."
-                else:
-                    return True
-                # TODO Customizability? Like java module testing?
+            check_prerequisites = handler.check_prerequisites
 
             def _execute_command(self, args, stdin=None):
-                return run_shell_command((self.executable,) + tuple(args),
+                return run_shell_command((kwargs["executable"],) + tuple(args),
                                          stdin=stdin)
 
             def match_to_result(self, match, filename):
