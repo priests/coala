@@ -9,8 +9,12 @@ from coalib.misc.Shell import run_shell_command
 from coalib.results.Diff import Diff
 from coalib.results.Result import Result
 from coalib.results.RESULT_SEVERITY import RESULT_SEVERITY
+from coalib.settings.FunctionMetadata import FunctionMetadata
 
 
+# TODO Don't think I need this, but maybe we switch to a simpler system instead
+# TODO of grabbing function metadata. So idea is grab metadata but parse them
+# TODO into these BearSetting's for easier use.
 class BearSetting:
     @enforce_signature
     def __init__(self, name: str, typ: type, default=None):
@@ -34,20 +38,16 @@ class BearSetting:
         return self._default
 
 
-# TODO Move to another file? --> uhm yes?
 class LinterHandler:
-    # TODO Damn fuck what about required section settings....
-    # TODO --> Maybe it's possible to insert metadata after instantation?
-    # TODO --> should be possible, bear has such a function...
-    # TODO ------> But how should setting-names, types and default values look?
-    # TODO -----------> Settings need to be provided inside create_arguments
-    # TODO -----------> maybe as dict or directly the settings object!!!
-    # TODO ----------------> Or just grab the signature from `create_arguments`
-    # TODO Doing the handler stuff below static? see line above^^
+    # TODO kwargs delegation for section settings
     @staticmethod
     def create_arguments(filename, file, config_file):
         """
         Creates the arguments for the linter.
+
+        You can provide additional keyword arguments and defaults. These will
+        be interpreted as required settings that need to be provided through
+        a coafile-section.
 
         :param filename:    The name of the file the linter-tool shall process.
         :param file:        The contents of the file.
@@ -97,9 +97,8 @@ class LinterHandler:
             return True
 
 
-# TODO Replace `x` with ``x`` because of rst
-
 # TODO docs
+
 
 @enforce_signature
 def Linter(executable: str,
@@ -216,20 +215,27 @@ def Linter(executable: str,
             pass
 
         class Linter(LocalBear):
-            @property
-            def handler(self):
+            @staticmethod
+            def get_handler():
                 return UserLinterHandler
 
-            @property
-            def executable(self):
+            @staticmethod
+            def get_executable():
                 return kwargs["executable"]
 
-            check_prerequisites = handler.check_prerequisites
+            check_prerequisites = get_handler().check_prerequisites
+
+            @classmethod
+            def get_metadata(cls):
+                return FunctionMetadata.from_function(
+                    cls.get_handler().create_arguments,
+                    omit={"filename", "file", "config_file"})
 
             def _execute_command(self, args, stdin=None):
-                return run_shell_command(self.executable,) + tuple(args),
+                return run_shell_command(self.get_executable(),) + tuple(args),
                                          stdin=stdin)
 
+            # TODO Adapt match_to_result
             def match_to_result(self, match, filename):
                 """
                 Converts a regex match's groups into a result.
@@ -237,6 +243,7 @@ def Linter(executable: str,
                 :param match:    The match got from regex parsing.
                 :param filename: The name of the file from which this match is got.
                 """
+                # TODO Copy _get_groupdict here
                 groups = self._get_groupdict(match)
 
                 # Pre process the groups
@@ -264,13 +271,13 @@ def Linter(executable: str,
                             file,
                             output.splitlines(keepends=True)).split_diff():
                         yield Result(self,
-                                     self.diff_message,
+                                     kwargs["diff_message"],
                                      affected_code=(diff.range(filename),),
                                      diffs={filename: diff},
-                                     severity=self.diff_severity)
+                                     severity=kwargs["diff_severity"])
             else:
                 def _process_output(self, output, filename, file):
-                    for match in self.output_regex.finditer(output):
+                    for match in kwargs["output_regex"].finditer(output):
                         # TODO Inline match_to_result? I'm really not sure,
                         # TODO this function makes sense...
                         yield self.match_to_result(match, filename)
@@ -295,7 +302,7 @@ def Linter(executable: str,
 
             @contextmanager
             def generate_config(self, filename, file):
-                content = self.handler.generate_config(filename, file)
+                content = self.get_handler().generate_config(filename, file)
                 if content is None:
                     yield None
                 else:
@@ -307,9 +314,9 @@ def Linter(executable: str,
             def run(self, filename, file):
                 with self.generate_config(filename, file) as config_file:
                     stdout, stderr = self._execute_command(
-                        self.handler.create_arguments(filename,
-                                                      file,
-                                                      config_file),
+                        self.get_handler().create_arguments(filename,
+                                                            file,
+                                                            config_file),
                         stdin=self._pass_file_as_stdin_if_needed(file))
                     output = self._grab_output(stdout, stderr)
                     self._process_output(output, filename, file)
