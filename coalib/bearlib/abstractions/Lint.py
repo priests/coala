@@ -42,6 +42,7 @@ class LinterHandler:
     # TODO ------> But how should setting-names, types and default values look?
     # TODO -----------> Settings need to be provided inside create_arguments
     # TODO -----------> maybe as dict or directly the settings object!!!
+    # TODO ----------------> Or just grab the signature from `create_arguments`
     # TODO Doing the handler stuff below static? see line above^^
     @staticmethod
     def create_arguments(filename, file, config_file):
