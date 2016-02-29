@@ -66,7 +66,7 @@ def Linter(executable: str,
     ...                     "    <mode>" + lintmode + "</mode>",
     ...                     "    <aggressive>" + modestring + "</aggressive>",
     ...                     "</xlint>")
-    ...         return "\n".join(contents)
+    ...         return "\\n".join(contents)
     ...
     ...     @staticmethod
     ...     def create_arguments(filename,
