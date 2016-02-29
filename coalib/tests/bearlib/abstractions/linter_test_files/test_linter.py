@@ -9,6 +9,9 @@
 import sys
 
 
+# TODO config_file testing
+
+
 if __name__ == "__main__":
     if "--use_stderr" in sys.argv:
         output_file = sys.stderr
@@ -17,9 +20,12 @@ if __name__ == "__main__":
 
     correct = "--correct" in sys.argv
 
-    filename = sys.argv[-1]
-    with open(filename, mode="r") as fl:
-        content = fl.read()
+    if "--use_stdin" in sys.argv:
+        content = input()  # TODO Does this also work with multiline input?
+    else:
+        filename = sys.argv[-1]
+        with open(filename, mode="r") as fl:
+            content = fl.read()
 
     for i, line in enumerate(content.splitlines()):
         if line[0] not in ("+", "-", "*", "/"):
