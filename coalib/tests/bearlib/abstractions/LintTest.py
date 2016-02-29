@@ -2,7 +2,7 @@ import os
 import platform
 import unittest
 
-from coalib.bearlib.abstractions.Lint import Lint
+from coalib.bearlib.abstractions.Linter import Lint
 from coalib.misc.ContextManagers import prepare_file
 from coalib.misc.Shell import escape_path_argument
 from coalib.results.RESULT_SEVERITY import RESULT_SEVERITY
