@@ -166,6 +166,26 @@ class LinterTest(unittest.TestCase):
                             "linter_test_files",
                             name)
 
+    def test_decorator_creation(self):
+        with self.assertRaises(ValueError):
+            Linter("some-executable", invalid_arg=88)
+
+        with self.assertRaises(ValueError):
+            Linter("some-executable", diff_severity=RESULT_SEVERITY.MAJOR)
+
+        with self.assertRaises(ValueError):
+            Linter("some-executable", diff_message="Custom message")
+
+        with self.assertRaises(ValueError):
+            Linter("some-executable",
+                   provides_correction=True,
+                   output_regex=".*")
+
+        with self.assertRaises(ValueError):
+            Linter("some-executable",
+                   provides_correction=True,
+                   severity_map={})
+
     def test_get_executable(self):
         uut = Linter("some-executable")(self.EmptyTestLinter)
         self.assertEqual(uut.get_executable(), "some-executable")
@@ -191,6 +211,14 @@ class LinterTest(unittest.TestCase):
         self.assertEqual(stdout, "display content")
         self.assertEqual(stderr, "['some_argument'']")
 
+    def test_process_output_corrected(self):
+        # TODO Ahhh I need to instantiate the bear...
+        uut_cls = Linter("", provides_correction=True)(self.EmptyTestLinter)
+        uut = uut_cls()
+
+    def test_process_output_issues(self):
+        pass
+
     def test_grab_output(self):
         uut = Linter("", use_stderr=False)(self.EmptyTestLinter)
         self.assertEqual(uut._grab_output("std", "err"), "std")
@@ -200,10 +228,10 @@ class LinterTest(unittest.TestCase):
 
     def test_pass_file_as_stdin_if_needed(self):
         uut = Linter("", stdin=False)(self.EmptyTestLinter)
-        self.assertIsNone(uut.test_pass_file_as_stdin_if_needed(["contents"]))
+        self.assertIsNone(uut._pass_file_as_stdin_if_needed(["contents"]))
 
         uut = Linter("", stdin=True)(self.EmptyTestLinter)
-        self.assertEqual(uut.test_pass_file_as_stdin_if_needed(["contents"]),
+        self.assertEqual(uut._pass_file_as_stdin_if_needed(["contents"]),
                          ["contents"])
 
     def test_generate_config(self):
@@ -217,3 +245,6 @@ class LinterTest(unittest.TestCase):
             with open(config_file, mode="r") as fl:
                 self.assertEqual(fl.read(), "config_value = 88")
         self.assertFalse(os.path.isfile(config_file))
+
+    def test_run(self):
+        pass

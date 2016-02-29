@@ -119,6 +119,7 @@ def Linter(executable: str,
     :param diff_message:        The message to use for all results if
                                 ``provides_correction`` is set. By default this
                                 value is ``"Inconsistency found."``.
+    :raises ValueError:         Raised when invalid options are supplied.
     :return:                    A ``LocalBear`` derivation that lints code
                                 using an external tool.
     """
@@ -257,10 +258,11 @@ def Linter(executable: str,
                 # Pre process the groups
                 groups = match.groupdict()
                 if (
-                        isinstance(self.severity_map, dict) and
+                        isinstance(options["severity_map"], dict) and
                         "severity" in groups and
                         groups["severity"] in self.severity_map):
-                    groups["severity"] = self.severity_map[groups["severity"]]
+                    groups["severity"] = (
+                        options["severity_map"][groups["severity"]])
 
                 for variable in ("line", "column", "end_line", "end_column"):
                     if variable in groups and groups[variable]:
@@ -270,6 +272,9 @@ def Linter(executable: str,
                     groups["origin"] = "{} ({})".format(
                         str(type(self).__name__),
                         str(groups["origin"]))
+
+                # TODO self -> cls ? We don't differentiate origin instances
+                # TODO and classes in fact...
 
                 # Construct the result.
                 return Result.from_values(
