@@ -2,7 +2,7 @@ import os
 import platform
 import unittest
 
-from coalib.bearlib.abstractions.Linter import Lint
+from coalib.bearlib.abstractions.Linter import Linter
 from coalib.misc.ContextManagers import prepare_file
 from coalib.misc.Shell import escape_path_argument
 from coalib.results.RESULT_SEVERITY import RESULT_SEVERITY
@@ -148,3 +148,68 @@ class LintTest(unittest.TestCase):
         # To complete coverage of closing the config file and check if any
         # errors are thrown there.
         self.uut.lint("filename")
+
+
+class LinterTest(unittest.TestCase):
+
+    class EmptyTestLinter:
+        pass
+
+    class ConfigurationTestLinter:
+        @staticmethod
+        def generate_config(filename, file, val):
+            return "config_value = " + str(val)
+
+    @staticmethod
+    def get_full_testfile_name(name):
+        return os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            "linter_test_files",
+                            name)
+
+    def test_grab_output(self):
+        uut = Linter("", use_stderr=False)(self.EmptyTestLinter)
+        self.assertEqual(uut._grab_output("std", "err"), "std")
+
+        uut = Linter("", use_stderr=True)(self.EmptyTestLinter)
+        self.assertEqual(uut._grab_output("std", "err"), "err")
+
+    def test_generate_config(self):
+        uut = Linter("")(self.EmptyTestLinter)
+        with uut._create_config("filename", []) as config_file:
+            self.assertIsNone(config_file)
+
+        uut = Linter("")(self.ConfigurationTestLinter)
+        with uut._create_config("filename", [], val=88) as config_file:
+            self.assertTrue(os.path.isfile(config_file))
+            with open(config_file, mode="r") as fl:
+                self.assertEqual(fl.read(), "config_value = 88")
+        self.assertFalse(os.path.isfile(config_file))
+
+    def test_pass_file_as_stdin_if_needed(self):
+        uut = Linter("", stdin=False)(self.EmptyTestLinter)
+        self.assertIsNone(uut.test_pass_file_as_stdin_if_needed(["contents"]))
+
+        uut = Linter("", stdin=True)(self.EmptyTestLinter)
+        self.assertEqual(uut.test_pass_file_as_stdin_if_needed(["contents"]),
+                         ["contents"])
+
+    def test_execute_command(self):
+        test_program_path = self.get_full_testfile_name("stdout_stderr.py")
+        uut = Linter(test_program_path)(self.EmptyTestLinter)
+
+        # The test program puts out the stdin content (only the first line) to
+        # stdout and the arguments passed to stderr.
+        stdout, stderr = uut._execute_command(["some_argument"],
+                                              "display content")
+
+        self.assertEqual(stdout, "display content")
+        self.assertEqual(stderr, "['some_argument'']")
+
+    def test_check_prerequisites(self):
+        test_program_path = self.get_full_testfile_name("stdout_stderr.py")
+        uut = Linter(test_program_path)(self.EmptyTestLinter)
+        self.assertTrue(uut.check_prerequisites())
+
+        uut = Linter("invalid_nonexisting_programv412")(self.EmptyTestLinter)
+        self.assertEqual(uut.check_prerequisites(),
+                         "'invalid_nonexisting_programv412' is not installed.")

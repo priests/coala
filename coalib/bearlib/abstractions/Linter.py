@@ -11,6 +11,7 @@ from coalib.results.Result import Result
 from coalib.results.RESULT_SEVERITY import RESULT_SEVERITY
 from coalib.settings.FunctionMetadata import FunctionMetadata
 
+
 @enforce_signature
 def Linter(executable: str,
            provides_correction: bool=False,
@@ -182,8 +183,8 @@ def Linter(executable: str,
                 :return: True if available, otherwise a string containing more
                          info.
                 """
-                if shutil.which(cls.executable) is None:
-                    return repr(cls.executable) + " is not installed."
+                if shutil.which(cls.get_executable()) is None:
+                    return repr(cls.get_executable()) + " is not installed."
                 else:
                     return True
 
@@ -232,7 +233,8 @@ def Linter(executable: str,
                     cls.create_arguments,
                     omit={"filename", "file", "config_file"})
 
-            def _execute_command(self, args, stdin=None):
+            @classmethod
+            def _execute_command(cls, args, stdin=None):
                 """
                 Executes the underlying tool with the given arguments.
 
@@ -241,7 +243,7 @@ def Linter(executable: str,
                 :return:      A tuple with ``(stdout, stderr)``.
                 """
                 return run_shell_command(
-                    (self.get_executable(),) + tuple(args),
+                    (cls.get_executable(),) + tuple(args),
                     stdin=stdin)
 
             def _convert_output_regex_match_to_result(self, match, filename):
@@ -276,7 +278,7 @@ def Linter(executable: str,
                     file=filename,
                     severity=int(groups.get("severity",
                                             RESULT_SEVERITY.NORMAL)),
-                    line=_togroups.get("line", None),
+                    line=groups.get("line", None),
                     column=groups.get("column", None),
                     end_line=groups.get("end_line", None),
                     end_column=groups.get("end_column", None))
