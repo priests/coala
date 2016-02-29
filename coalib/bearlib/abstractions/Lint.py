@@ -11,10 +11,6 @@ from coalib.results.Result import Result
 from coalib.results.RESULT_SEVERITY import RESULT_SEVERITY
 from coalib.settings.FunctionMetadata import FunctionMetadata
 
-# TODO docs
-
-# TODO especially docs for Linter usage, so how class needs to look like.
-
 @enforce_signature
 def Linter(executable: str,
            provides_correction: bool=False,
@@ -25,10 +21,59 @@ def Linter(executable: str,
     Decorator that creates a ``LocalBear`` that is able to process results from
     an external linter tool.
 
+    The main functionality is achieved through the ``create_arguments()``
+    function that constructs the command-line-arguments that get parsed to your
+    executable.
+
     >>> @Linter("xlint")
     ... class XLintBear:
-    ...     def create_arguments(self, filename, file, config_file):
+    ...     @staticmethod
+    ...     def create_arguments(filename, file, config_file):
     ...         return ("--lint", filename)
+
+    Requiring settings is possible like in ``Bear.run()`` with supplying
+    additional keyword arguments (and if needed with defaults).
+
+    >>> @Linter("xlint")
+    ... class XLintBear:
+    ...     @staticmethod
+    ...     def create_arguments(filename,
+    ...                          file,
+    ...                          config_file,
+    ...                          lintmode: str,
+    ...                          enable_aggressive_lints: bool=False):
+    ...         arguments = ("--lint", filename, "--mode=" + lintmode)
+    ...         if enable_aggressive_lints:
+    ...             arguments += ("--aggressive",)
+    ...         return arguments
+
+    Sometimes your tool requires an actual file that contains configuration.
+    ``Linter`` allows you to just define the contents the configuration shall
+    contain via ``generate_config()`` and handles everything else for you.
+
+    >>> @Linter("xlint")
+    ... class XLintBear:
+    ...     @staticmethod
+    ...     def generate_config(filename,
+    ...                         file,
+    ...                         lintmode,
+    ...                         enable_aggressive_lints):
+    ...         modestring = ("aggressive"
+    ...                       if enable_aggressive_lints else
+    ...                       "non-aggressive")
+    ...         contents = ("<xlint>",
+    ...                     "    <mode>" + lintmode + "</mode>",
+    ...                     "    <aggressive>" + modestring + "</aggressive>",
+    ...                     "</xlint>")
+    ...         return "\n".join(contents)
+    ...
+    ...     @staticmethod
+    ...     def create_arguments(filename,
+    ...                          file,
+    ...                          config_file,
+    ...                          lintmode: str,
+    ...                          enable_aggressive_lints: bool=False):
+    ...         return ("--lint", filename, "--config", config_file)
 
     :param executable:          The linter tool.
     :param provides_correction: Whether the underlying executable provides as
@@ -122,6 +167,11 @@ def Linter(executable: str,
 
             @staticmethod
             def get_executable():
+                """
+                Returns the executable of this class.
+
+                :return: The executable name.
+                """
                 return options["executable"]
 
             @classmethod
@@ -138,18 +188,22 @@ def Linter(executable: str,
                     return True
 
             @staticmethod
-            def generate_config(filename, file):
+            def generate_config(filename, file, **kwargs):
                 """
-                Generates the content of a config-file the linter-tool might need.
+                Generates the content of a config-file the linter-tool might
+                need.
 
-                The contents generated from this function are written to a temporary
-                file and the path is provided inside ``create_arguments()``.
+                The contents generated from this function are written to a
+                temporary file and the path is provided inside
+                ``create_arguments()``.
 
                 By default no configuration is generated.
 
                 :param filename: The name of the file currently processed.
                 :param file:     The contents of the file currently processed.
-                :return:         The config-file-contents as a string or ``None``.
+                :param kwargs:   Settings provided by ``run()``.
+                :return:         The config-file-contents as a string or
+                                 ``None``.
                 """
                 return None
 
@@ -158,17 +212,17 @@ def Linter(executable: str,
                 """
                 Creates the arguments for the linter.
 
-                You can provide additional keyword arguments and defaults. These will
-                be interpreted as required settings that need to be provided through
-                a coafile-section.
+                You can provide additional keyword arguments and defaults.
+                These will be interpreted as required settings that need to be
+                provided through a coafile-section.
 
                 :param filename:    The name of the file the linter-tool shall
                                     process.
                 :param file:        The contents of the file.
-                :param config_file: The path of the config-file if used. ``None`` if
-                                    unused.
-                :return:            A sequence of arguments to feed the linter-tool
-                                    with.
+                :param config_file: The path of the config-file if used.
+                                    ``None`` if unused.
+                :return:            A sequence of arguments to feed the
+                                    linter-tool with.
                 """
                 raise NotImplementedError
 
@@ -263,8 +317,17 @@ def Linter(executable: str,
 
             @staticmethod
             @contextmanager
-            def _create_config(filename, file):
-                content = cls.generate_config(filename, file)
+            def _create_config(filename, file, **kwargs):
+                """
+                Provides a context-manager that creates the config file if the
+                user provides one and cleans it up when done with linting.
+
+                :param filename: The filename of the file.
+                :param file:     The file contents.
+                :param kwargs:   Section settings passed from ``run()``,
+                :return:         A context-manager handling the config-file.
+                """
+                content = cls.generate_config(filename, file, **kwargs)
                 if content is None:
                     yield None
                 else:
@@ -278,7 +341,10 @@ def Linter(executable: str,
                                          file,
                                          **kwargs) as config_file:
                     stdout, stderr = self._execute_command(
-                        self..create_arguments(filename, file, config_file),
+                        self.create_arguments(filename,
+                                              file,
+                                              config_file,
+                                              **kwargs),
                         stdin=self._pass_file_as_stdin_if_needed(file))
                     output = self._grab_output(stdout, stderr)
                     self._process_output(output, filename, file)
